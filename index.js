@@ -36,11 +36,6 @@ async function startBot() {
                 console.log('\n======================================================');
                 console.log('🔑 YOUR WHATSAPP PAIRING CODE IS:');
                 console.log(`\n       👉   ${formattedCode}   👈\n`);
-                console.log('======================================================');
-                console.log('On your iPad in WhatsApp:');
-                console.log('1. Go to Settings -> Linked Devices -> Link a Device');
-                console.log('2. Tap "Link with phone number instead" at the bottom');
-                console.log(`3. Enter the code: ${formattedCode}`);
                 console.log('======================================================\n');
             } catch (err) {
                 console.error('Failed to get pairing code:', err.message);
@@ -54,20 +49,11 @@ async function startBot() {
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
-            console.log(`Connection closed (reason code: ${statusCode}).`);
-
-            if (statusCode === 401 || statusCode === DisconnectReason.loggedOut) {
-                console.log('Session expired or logged out. Restarting...');
-                setTimeout(startBot, 5000);
-            } else {
-                console.log('Reconnecting in 5 seconds...');
-                setTimeout(startBot, 5000);
-            }
+            console.log(`Connection closed (reason code: ${statusCode}). Reconnecting...`);
+            setTimeout(startBot, 5000);
         } else if (connection === 'open') {
             console.log('\n======================================================');
             console.log('✅ YOUR IPAD WHATSAPP BOT IS ONLINE & WORKING 24/7!');
-            console.log('======================================================');
-            console.log('🔒 PRIVACY GUARD ACTIVE: Only responds in your "Message Yourself" chat!');
             console.log('======================================================\n');
         }
     });
@@ -78,22 +64,23 @@ async function startBot() {
             if (!msg || !msg.message) return;
 
             const chatJid = msg.key.remoteJid || '';
-            const myUserNumber = sock.user?.id ? sock.user.id.split(':')[0].split('@')[0] : '';
-            const chatNumber = chatJid.split('@')[0].split(':')[0];
-
-            const isSelfChat = (myUserNumber && chatNumber === myUserNumber);
-
-            if (!isSelfChat) return;
-
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+
             if (!text) return;
 
-            if (text.includes('youtube.com/') || text.includes('youtu.be/')) {
-                console.log(`[YouTube] Received self-link`);
+            console.log(`[Message Received] in chat: ${chatJid} | text: "${text}"`);
+
+            const isYT = text.includes('youtube.com/') || text.includes('youtu.be/');
+            const isSpotify = text.includes('spotify.com/track/');
+
+            if (!isYT && !isSpotify) return;
+
+            if (isYT) {
+                console.log(`[Processing YouTube Link]...`);
                 await sock.sendMessage(chatJid, { text: '⏳ Downloading YouTube audio track...' }, { quoted: msg });
                 downloadAndSendAudio(text, sock, chatJid, msg);
-            } else if (text.includes('spotify.com/track/')) {
-                console.log(`[Spotify] Received self-link`);
+            } else if (isSpotify) {
+                console.log(`[Processing Spotify Link]...`);
                 await sock.sendMessage(chatJid, { text: '🎵 Fetching Spotify song info...' }, { quoted: msg });
                 handleSpotifyLink(text, sock, chatJid, msg);
             }
@@ -110,11 +97,13 @@ function downloadAndSendAudio(searchQuery, sock, sender, originalMsg) {
 
     exec(cmd, async (error, stdout, stderr) => {
         if (error) {
+            console.error('Download error:', stderr || error.message);
             await sock.sendMessage(sender, { text: '❌ Failed to download audio file.' }, { quoted: originalMsg });
             return;
         }
 
         if (fs.existsSync(outputFile)) {
+            console.log(`Sending ${outputFile}...`);
             await sock.sendMessage(sender, {
                 audio: fs.readFileSync(outputFile),
                 mimetype: 'audio/mp4',
@@ -137,9 +126,11 @@ async function handleSpotifyLink(url, sock, sender, originalMsg) {
             searchQuery = titleMatch[1].replace(' | Spotify', '').replace(' - song by ', ' ');
         }
 
+        console.log(`Spotify query: "${searchQuery}"`);
         await sock.sendMessage(sender, { text: `🔍 Found song: "${searchQuery}". Downloading...` }, { quoted: originalMsg });
         downloadAndSendAudio(`ytsearch1:${searchQuery}`, sock, sender, originalMsg);
     } catch (err) {
+        console.error('Spotify error:', err.message);
         await sock.sendMessage(sender, { text: '❌ Could not retrieve song details from Spotify link.' }, { quoted: originalMsg });
     }
 }
