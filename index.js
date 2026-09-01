@@ -32,11 +32,7 @@ async function startBot() {
             try {
                 const code = await sock.requestPairingCode(phoneNumber);
                 const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
-                
-                console.log('\n======================================================');
-                console.log('🔑 YOUR WHATSAPP PAIRING CODE IS:');
-                console.log(`\n       👉   ${formattedCode}   👈\n`);
-                console.log('======================================================\n');
+                console.log(`🔑 PAIRING CODE: ${formattedCode}`);
             } catch (err) {
                 console.error('Failed to get pairing code:', err.message);
                 setTimeout(startBot, 5000);
@@ -68,7 +64,7 @@ async function startBot() {
 
             if (!text) return;
 
-            console.log(`[Message Received] in chat: ${chatJid} | text: "${text}"`);
+            console.log(`\n📩 [Received Message] text: "${text}"`);
 
             const isYT = text.includes('youtube.com/') || text.includes('youtu.be/');
             const isSpotify = text.includes('spotify.com/track/');
@@ -76,11 +72,11 @@ async function startBot() {
             if (!isYT && !isSpotify) return;
 
             if (isYT) {
-                console.log(`[Processing YouTube Link]...`);
+                console.log(`⚡ Processing YouTube Link...`);
                 await sock.sendMessage(chatJid, { text: '⏳ Downloading YouTube audio track...' }, { quoted: msg });
                 downloadAndSendAudio(text, sock, chatJid, msg);
             } else if (isSpotify) {
-                console.log(`[Processing Spotify Link]...`);
+                console.log(`⚡ Processing Spotify Link...`);
                 await sock.sendMessage(chatJid, { text: '🎵 Fetching Spotify song info...' }, { quoted: msg });
                 handleSpotifyLink(text, sock, chatJid, msg);
             }
@@ -103,13 +99,14 @@ function downloadAndSendAudio(searchQuery, sock, sender, originalMsg) {
         }
 
         if (fs.existsSync(outputFile)) {
-            console.log(`Sending ${outputFile}...`);
+            console.log(`🚀 Sending ${outputFile} to WhatsApp!`);
             await sock.sendMessage(sender, {
                 audio: fs.readFileSync(outputFile),
                 mimetype: 'audio/mp4',
                 ptt: false
             }, { quoted: originalMsg });
             fs.unlinkSync(outputFile);
+            console.log('✅ Sent successfully!');
         } else {
             await sock.sendMessage(sender, { text: '❌ Output file not found after download.' }, { quoted: originalMsg });
         }
@@ -126,7 +123,7 @@ async function handleSpotifyLink(url, sock, sender, originalMsg) {
             searchQuery = titleMatch[1].replace(' | Spotify', '').replace(' - song by ', ' ');
         }
 
-        console.log(`Spotify query: "${searchQuery}"`);
+        console.log(`🔍 Spotify query: "${searchQuery}"`);
         await sock.sendMessage(sender, { text: `🔍 Found song: "${searchQuery}". Downloading...` }, { quoted: originalMsg });
         downloadAndSendAudio(`ytsearch1:${searchQuery}`, sock, sender, originalMsg);
     } catch (err) {
